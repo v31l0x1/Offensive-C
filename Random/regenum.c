@@ -22,7 +22,7 @@ VOID EnumSoftware( void ) {
     while ( TRUE ) {
         dwSubKeyNameSize = sizeof( szSubKeyName );
 
-        lStatus = RegEnzumKeyExA( hUninstall, dwIndex++, szSubKeyName, &dwSubKeyNameSize, NULL, NULL, NULL, NULL );
+        lStatus = RegEnumKeyExA( hUninstall, dwIndex++, szSubKeyName, &dwSubKeyNameSize, NULL, NULL, NULL, NULL );
 
         if ( lStatus == ERROR_NO_MORE_ITEMS ) {
             break;
@@ -32,20 +32,20 @@ VOID EnumSoftware( void ) {
             break;
         }
 
-        HKEY hChlidKey;
-        if ( RegOpenKeyExA( hUninstall, szSubKeyName, 0, KEY_READ, &hChlidKey ) != ERROR_SUCCESS ) {
+        HKEY hChildKey;
+        if ( RegOpenKeyExA( hUninstall, szSubKeyName, 0, KEY_READ, &hChildKey ) != ERROR_SUCCESS ) {
             continue;
         }
 
         CHAR szDisplayName[ 256 ];
         DWORD dwDisplayNameSize = sizeof( szDisplayName );
         DWORD type;
-        if ( RegQueryValueExA( hChlidKey, "DisplayName", NULL, &type, ( LPBYTE )szDisplayName, &dwDisplayNameSize ) == ERROR_SUCCESS ) {
+        if ( RegQueryValueExA( hChildKey, "DisplayName", NULL, &type, ( LPBYTE )szDisplayName, &dwDisplayNameSize ) == ERROR_SUCCESS ) {
             printf( "   %s\n", szDisplayName );
             dwCount++;
         }
 
-        RegCloseKey( hChlidKey );
+        RegCloseKey( hChildKey );
     }
 
     printf( "Total installed software: %lu\n", dwCount );
