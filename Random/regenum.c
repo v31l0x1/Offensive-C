@@ -22,7 +22,7 @@ VOID EnumSoftware( void ) {
     while ( TRUE ) {
         dwSubKeyNameSize = sizeof( szSubKeyName );
 
-        lStatus = RegEnumKeyExA( hUninstall, dwIndex++, szSubKeyName, &dwSubKeyNameSize, NULL, NULL, NULL, NULL );
+        lStatus = RegEnzumKeyExA( hUninstall, dwIndex++, szSubKeyName, &dwSubKeyNameSize, NULL, NULL, NULL, NULL );
 
         if ( lStatus == ERROR_NO_MORE_ITEMS ) {
             break;

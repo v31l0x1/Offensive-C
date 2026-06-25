@@ -45,5 +45,17 @@ filerecon: filerecon.c
 regenum: regenum.c
 	cl.exe /W4 /O2 regenum.c /link advapi32.lib
 
+procop: procop.c
+	cl.exe /W4 /O2 procop.c
+
+threadsplay: threadsplay.c
+	cl.exe /W4 /O2 threadsplay.c
+
+tokenrecon: tokenrecon.c
+	cl.exe /W4 /O2 tokenrecon.c /link advapi32.lib
+
+tcpscan: tcpscan.c
+	cl.exe /W4 /O2 tcpscan.c /link ws2_32.lib
+
 clean:
 	del *.exe *.obj *.pdb
