@@ -13,4 +13,4 @@ Inject: Inject.c
 
 
 clean:
-	del *.exe *.dll *.obj *.pdb
+	del *.exe *.dll *.obj *.pdb *.exp *.lib
