@@ -97,20 +97,9 @@ DWORD findPIDByNtQuery( LPCWSTR procName ) {
     DWORD pid = 0;
     PSYSTEM_PROCESS_INFORMATION pInfo = ( PSYSTEM_PROCESS_INFORMATION )buffer;
     while ( TRUE ) {
-        if ( pInfo->ImageName.Buffer ) {
-            PWCHAR fileName = wcsrchr( pInfo->ImageName.Buffer, L'\\' );
-            if ( fileName ) {
-                fileName++;
-            }
-            else {
-                fileName = pInfo->ImageName.Buffer;
-            }
-
-            if ( _wcsicmp( fileName, procName ) == 0 ) {
-                pid = ( DWORD )( ULONG_PTR )pInfo->UniqueProcessId;
-                break;
-            }
-
+        if ( pInfo->ImageName.Buffer && _wcsicmp( pInfo->ImageName.Buffer, procName ) == 0 ) {
+            pid = ( DWORD )( ULONG_PTR )pInfo->UniqueProcessId;
+            break;
         }
 
         if ( pInfo->NextEntryOffset == 0 ) {
