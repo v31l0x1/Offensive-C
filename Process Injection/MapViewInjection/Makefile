@@ -5,3 +5,7 @@ all: MapViewInject
 
 MapViewInject: MapViewInject.c
 	$(CC) $(CFLAGS) MapViewInject.c /FeMapViewInject.exe
+	del *.obj
+
+clean:
+	del *.exe *.obj *.pdb
