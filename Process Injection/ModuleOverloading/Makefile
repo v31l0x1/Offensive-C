@@ -1,10 +1,10 @@
 CC = cl.exe
 CFLAGS = /nologo /W4 /O2 
 
-all: ModuleStomp
+all: ModuleOverload
 
-ModuleStomp: ModuleStomp.c
-	$(CC) $(CFLAGS) ModuleStomp.c /FeModuleStomp.exe
+ModuleOverload: ModuleOverload.c
+	$(CC) $(CFLAGS) ModuleOverload.c /FeModuleOverload.exe
 	del *.obj
 
 clean:
