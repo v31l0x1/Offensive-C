@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include "Payload.h"
 
-DWORD NtAllocateVirtualMemory_SSN;
-UINT_PTR NtAllocateVirtualMemory_Addr;
+extern DWORD NtAllocateVirtualMemory_SSN;
+extern UINT_PTR NtAllocateVirtualMemory_Addr;
 
 extern NTSTATUS NTAPI Sys_NtAllocateVirtualMemory(
     HANDLE ProcessHandle,
@@ -60,7 +60,7 @@ BOOL GetSyscallInfo( HMODULE hModule, LPCSTR lpFuncName, PDWORD SSN, PUINT_PTR s
                 *SSN = *( DWORD* )( pFunctionAddress + j + 4 );
                 *sysAddr = ( UINT_PTR )( pFunctionAddress + j );
 
-                printf( "[+] Syscall Number: %d\n", *SSN );
+                printf( "[+] Syscall Number: 0x%x\n", *SSN );
                 printf( "[+] Syscall Address: 0x%p\n", ( VOID* )*sysAddr );
 
                 return TRUE;
