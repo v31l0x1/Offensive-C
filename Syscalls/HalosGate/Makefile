@@ -3,9 +3,10 @@ CFLAGS = /nologo /W4 /O2
 
 all: HalosGate
 
-HalosGate: HalosGate.c
-	$(CC) $(CFLAGS) HalosGate.c /FeHalosGate.exe
+HalosGate: HalosGate.c	
+	ml64.exe /c /nologo syscall.asm
+	$(CC) $(CFLAGS) HalosGate.c /FeHalosGate.exe /link syscall.obj
 	del *.obj
 
 clean:
-	del HalosGate.exe
+	del *.exe *.obj
