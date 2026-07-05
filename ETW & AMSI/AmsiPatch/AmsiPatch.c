@@ -1,6 +1,28 @@
 #include <windows.h>
 #include <stdio.h>
+#include <amsi.h>
 
+BOOL CheckAMSI( void ) {
+
+    HAMSICONTEXT ctx;
+    if ( AmsiInitialize( L"AMSI Text", &ctx ) != S_OK ) {
+        printf( "[-] Failed to initialize AMSI context\n" );
+        return FALSE;
+    }
+
+    LPCWSTR testString = L"Invoke-Mimikatz";
+    AMSI_RESULT result;
+    HRESULT hr = AmsiScanString( ctx, testString, L"AMSI Test", NULL, &result );
+    AmsiUninitialize( ctx );
+
+    if ( hr != S_OK ) {
+        printf( "[-] AmsiScanString failed: 0x%08X\n", hr );
+        return FALSE;
+    }
+
+    printf( "[+] AmsiScanString result: 0x%08X\n", result );
+    return result >= AMSI_RESULT_CLEAN;
+}
 
 VOID PrintBytes( PVOID pAddress, SIZE_T size ) {
     BYTE* pBytes = ( BYTE* )pAddress;

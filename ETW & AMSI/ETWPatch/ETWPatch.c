@@ -2,6 +2,13 @@
 #include <stdio.h>
 
 
+// Other ETW functions
+// ETWEventWrite
+// ETWEventWriteFull
+// ETWEventWriteEx
+// ETWEventWriteTransfer
+// ETWNotificationRegister
+
 VOID PrintBytes( PVOID pAddress, SIZE_T size ) {
     BYTE* pBytes = ( BYTE* )pAddress;
     for ( SIZE_T i = 0; i < size; i++ ) {
