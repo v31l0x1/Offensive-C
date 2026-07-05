@@ -73,7 +73,7 @@ int main( void ) {
 
     AddVectoredExceptionHandler( 1, VectoredHandler );
     SetHwBp( GetCurrentThread(), ( PVOID )pMessageBoxA, 0 );
-
+    
     pMessageBoxA( NULL, "Hello, World!", "Message", MB_OK );
 
 }
