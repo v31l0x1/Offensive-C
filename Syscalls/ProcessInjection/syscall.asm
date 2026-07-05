@@ -5,24 +5,28 @@ PUBLIC NtAllocateVirtualMemory_SSN
 PUBLIC NtProtectVirtualMemory_SSN
 PUBLIC NtWriteVirtualMemory_SSN
 PUBLIC NtCreateThreadEx_SSN
+PUBLIC NtOpenProcess_SSN
 
 PUBLIC NtAllocateVirtualMemory_Addr
 PUBLIC NtProtectVirtualMemory_Addr
 PUBLIC NtWriteVirtualMemory_Addr
 PUBLIC NtCreateThreadEx_Addr
 PUBLIC NtQuerySystemInformation_Addr
+PUBLIC NtOpenProcess_Addr
 
 NtAllocateVirtualMemory_SSN DWORD 0
 NtProtectVirtualMemory_SSN DWORD 0
 NtWriteVirtualMemory_SSN DWORD 0
 NtCreateThreadEx_SSN DWORD 0
 NtQuerySystemInformation_SSN DWORD 0
+NTOpenProcess_SSN DWORD 0
 
 NtAllocateVirtualMemory_Addr QWORD 0
 NtProtectVirtualMemory_Addr QWORD 0
 NtWriteVirtualMemory_Addr QWORD 0
 NtCreateThreadEx_Addr QWORD 0
 NtQuerySystemInformation_Addr QWORD 0
+NtOpenProcess_Addr QWORD 0
 
 
 .code 
@@ -56,6 +60,12 @@ Sys_NtQuerySystemInformation PROC
     mov eax, dword ptr [NtQuerySystemInformation_SSN]
     jmp qword ptr [NtQuerySystemInformation_Addr]
 Sys_NtQuerySystemInformation ENDP
+
+Sys_NtOpenProcess PROC
+    mov r10, rcx
+    mov eax, dword ptr [NtOpenProcess_SSN]
+    jmp qword ptr [NtOpenProcess_Addr]
+Sys_NtOpenProcess ENDP
 
 END
 

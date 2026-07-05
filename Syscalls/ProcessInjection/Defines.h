@@ -9,12 +9,23 @@ extern DWORD NtWriteVirtualMemory_SSN;
 extern DWORD NtProtectVirtualMemory_SSN;
 extern DWORD NtCreateThreadEx_SSN;
 extern DWORD NtQuerySystemInformation_SSN;
+extern DWORD NtOpenProcess_SSN;
 
 extern UINT_PTR NtAllocateVirtualMemory_Addr;
 extern UINT_PTR NtWriteVirtualMemory_Addr;
 extern UINT_PTR NtProtectVirtualMemory_Addr;
 extern UINT_PTR NtCreateThreadEx_Addr;
 extern UINT_PTR NtQuerySystemInformation_Addr;
+extern UINT_PTR NtOpenProcess_Addr;
+
+#define InitializeObjectAttributes(p, n, a, r, s) { \
+    (p)->Length = sizeof(OBJECT_ATTRIBUTES); \
+    (p)->RootDirectory = r; \
+    (p)->Attributes = a; \
+    (p)->ObjectName = n; \
+    (p)->SecurityDescriptor = s; \
+    (p)->SecurityQualityOfService = NULL; \
+    }
 
 typedef struct _UNICODE_STRING
 {
@@ -487,6 +498,12 @@ extern NTSTATUS NTAPI Sys_NtCreateThreadEx(
     PPS_ATTRIBUTE_LIST AttributeList
 );
 
+extern NTSTATUS NTAPI Sys_NtOpenProcess(
+    _Out_ PHANDLE ProcessHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_ PCOBJECT_ATTRIBUTES ObjectAttributes,
+    _In_opt_ PCLIENT_ID ClientId
+);
 
 extern NTSTATUS NTAPI Sys_NtQuerySystemInformation(
     _In_ SYSTEM_INFORMATION_CLASS SystemInformationClass,
