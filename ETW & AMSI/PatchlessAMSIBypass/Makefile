@@ -4,7 +4,7 @@ CFLAGS = /nologo /W4 /O2
 all: PatchlessETWBypass
 
 PatchlessETWBypass: Patchless.c
-	$(CC) $(CFLAGS) Patchless.c /FePatchlessETWBypass.exe
+	$(CC) $(CFLAGS) Patchless.c /FePatchlessETWBypass.exe /link amsi.lib
 	del *.obj
 
 clean:

